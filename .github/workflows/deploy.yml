@@ -49,9 +49,11 @@ jobs:
           key: ${{ env.EC2_KEY }}
           script: |
             echo "Connecting to BE via FE..."
-            ssh -o StrictHostKeyChecking=no -i secret_key.pem ubuntu@10.0.0.92 << 'EOF'
-              docker pull ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:latest
+            ssh -o StrictHostKeyChecking=no -i secret_key.pem ubuntu@10.0.0.92 << "EOF"
+              export ECR_REPOSITORY=dindin-ecommerce-api
+              docker pull 632258238440.dkr.ecr.ap-southeast-2.amazonaws.com/$ECR_REPOSITORY:latest
               docker stop be_t3 || true
               docker rm be_t3 || true
-              docker run -d --name be_t3 -p 3000:3000 --env-file .env ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:latest
+              docker run -d --name be_t3 -p 3000:3000 --env-file .env 632258238440.dkr.ecr.ap-southeast-2.amazonaws.com/$ECR_REPOSITORY:latest
             EOF
+
