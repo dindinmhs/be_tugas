@@ -13,13 +13,14 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Product {
+model HealthRecord {
   id        Int      @id @default(autoincrement())
   name      String
-  price     Float
-  imgUrl    String
-  description String
-  stock     Int
-  category  String
+  age       Int
+  height    Float    // dalam cm
+  weight    Float    // dalam kg
+  bmi       Float
+  bmiCategory String
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
