@@ -11,7 +11,7 @@ jobs:
     env:
       AWS_REGION: ap-southeast-2
       ECR_REPOSITORY: dindin-ecommerce-api
-      EC2_HOST: ${{ secrets.EC2_HOST }}        # Public IP FE EC2, e.g., 3.25.168.53
+      EC2_HOST: ${{ secrets.EC2_HOST }}        # FE Public IP (bastion)
       EC2_USER: ${{ secrets.EC2_USER }}        # usually 'ubuntu'
       EC2_KEY: ${{ secrets.EC2_KEY }}          # SSH private key for FE and BE
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -34,11 +34,16 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t $ECR_REPOSITORY:latest .
-          docker tag $ECR_REPOSITORY:latest ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:latest
+          IMAGE_TAG=${GITHUB_SHA::8} # pakai commit hash biar unik
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+
+          docker build --no-cache -t $ECR_REPOSITORY:$IMAGE_TAG .
+          docker tag $ECR_REPOSITORY:$IMAGE_TAG ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:$IMAGE_TAG
+          docker tag $ECR_REPOSITORY:$IMAGE_TAG ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:latest
 
       - name: Push Docker image to ECR
         run: |
+          docker push ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:$IMAGE_TAG
           docker push ${{ steps.login-ecr.outputs.registry }}/$ECR_REPOSITORY:latest
 
       - name: Deploy to BE via FE Bastion
@@ -51,9 +56,13 @@ jobs:
             echo "Connecting to BE via FE..."
             ssh -o StrictHostKeyChecking=no -i secret_key.pem ubuntu@10.0.0.92 << "EOF"
               export ECR_REPOSITORY=dindin-ecommerce-api
-              docker pull 632258238440.dkr.ecr.ap-southeast-2.amazonaws.com/$ECR_REPOSITORY:latest
+              export IMAGE_TAG=${GITHUB_SHA::8}
+
+              docker pull 632258238440.dkr.ecr.ap-southeast-2.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
+
               docker stop be_t3 || true
               docker rm be_t3 || true
-              docker run -d --name be_t3 -p 3000:3000 --env-file .env 632258238440.dkr.ecr.ap-southeast-2.amazonaws.com/$ECR_REPOSITORY:latest
-            EOF
 
+              docker run -d --name be_t3 -p 3000:3000 --env-file .env \
+                632258238440.dkr.ecr.ap-southeast-2.amazonaws.com/$ECR_REPOSITORY:$IMAGE_TAG
+            EOF
